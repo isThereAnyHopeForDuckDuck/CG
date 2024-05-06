@@ -1,0 +1,13 @@
+.vs/
+x64/
+
+*.user
+*.tlog
+*.CppCl
+*.log
+*.recipe
+*.ilk
+*.txt
+*.obj
+*.idb
+*.pdb
