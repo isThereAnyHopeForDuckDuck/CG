@@ -5,7 +5,12 @@
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
-#include "learnOpengl/shader_s.h"
+#include "learnOpengl/shader_m.h"
+
+#include "glm/glm.hpp"
+#include "glm/gtc/matrix_transform.hpp"
+#include "glm/gtc/type_ptr.hpp"
+#include <vector>
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow* window);
@@ -49,15 +54,19 @@ int main()
         return -1;
     }
 
-    char path_vs[]      = "C:\\ccli\\code\\opengl\\shaders\\texture.vs";
-    char path_fs[]      = "C:\\ccli\\code\\opengl\\shaders\\texture.fs";
-    char path_texture[] = "C:\\ccli\\resource\\image\\duckduck.jpeg";
+    char path_vs[]      = "D:\\lr\\code\\own\\CG\\resource\\glsls\\texture.vs";
+    char path_fs[]      = "D:\\lr\\code\\own\\CG\\resource\\glsls\\texture.fs";
+    char path_vs_coordAxis[] = "D:\\lr\\code\\own\\CG\\resource\\glsls\\coordAxis.vs";
+    char path_fs_coordAxis[] = "D:\\lr\\code\\own\\CG\\resource\\glsls\\coordAxis.fs";
+    
+    char path_texture[] = "D:\\lr\\code\\own\\CG\\resource\\images\\skybox\\back.jpg";
 
+    // texture data
     float vertexs[] = {
         -0.5, -0.5, -1.0, 0.0, 0.0,
-        -0.5,  0.5, -1.0, 0.0, 1.0,
-         0.5,  0.5, -1.0, 1.0, 1.0,
-         0.5, -0.5, -1.0, 1.0, 0.0,
+        -0.5, -0.1, -1.0, 0.0, 1.0,
+        -0.1, -0.1, -1.0, 1.0, 1.0,
+        -0.1, -0.5, -1.0, 1.0, 0.0,
     };
 
     uint8_t elements[] = {
@@ -89,7 +98,7 @@ int main()
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
-    //texture
+    //
     uint32_t textrueId;
     glGenTextures(1, &textrueId);
     glBindTexture(GL_TEXTURE_2D, textrueId);
@@ -114,8 +123,133 @@ int main()
     }
     stbi_image_free(data);
 
-    Shader ourShader(path_vs, path_fs);
+    // coord axis data
+    float vertexs_coordAxis[] = {
+        -0.5,  0.0, 0.0,
+         0.5,  0.0, 0.0,
 
+         0.0,  0.5, 0.0,
+         0.0, -0.5, 0.0,
+
+         0.0,  0.0, 0.5,
+         0.0,  0.0, -0.5,
+    };
+
+    uint32_t vao_coordAxis, vbo_coordAxis;
+    glGenVertexArrays(1, &vao_coordAxis);
+    glBindVertexArray(vao_coordAxis);
+
+    glGenBuffers(1, &vbo_coordAxis);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo_coordAxis);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertexs_coordAxis), vertexs_coordAxis, GL_STATIC_DRAW);
+
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, false, 3 * sizeof(float), 0);
+
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    Shader ourShader(path_vs, path_fs);
+    Shader coordAxisShader(path_vs_coordAxis, path_fs_coordAxis);
+
+    auto drawCoordinateAxis = [&]() {
+        glBindVertexArray(vao_coordAxis);
+        coordAxisShader.use();
+
+        coordAxisShader.setVec4("customColor", 1.0f, 0.0f, 0.0f, 1.0f);
+        glDrawArrays(GL_LINES, 0, 2);
+
+        coordAxisShader.setVec4("customColor", 0.0f, 1.0f, 0.0f, 1.0f);
+        glDrawArrays(GL_LINES, 2, 2);
+
+        coordAxisShader.setVec4("customColor", 0.0f, 0.0f, 1.0f, 1.0f);
+        glDrawArrays(GL_LINES, 4, 2);
+
+        glBindVertexArray(0);
+    };
+
+    //任意点自转
+    auto drawImage_RotateAtAnyPoint = [&](const std::vector<glm::vec3> & points) {
+
+        static float angle = 45.0f;
+        glm::mat4 projection = glm::perspective(45.0f, (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+        glm::mat4 view = glm::lookAt(glm::vec3(0.0f, 0.0f, 3.0f), glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        glm::mat4 model = glm::mat4(1.0f);
+#if 01
+        model = glm::rotate(model, glm::radians(angle), glm::vec3(0.0f, 0.0f, 1.0f));
+        model = glm::translate(model, glm::vec3(0.3f, 0.3f, 0.0f));
+        glm::mat4 baseModel = model;
+        // baseModel = rotate * translate;  先将旋转中心点平移到 （0，0）点，然后旋转
+        //之后再通过 translate * baseModel的方式，将图形移动
+#else
+        glm::mat4 rotate = glm::rotate(model, glm::radians(angle), glm::vec3(0.0f, 0.0f, 1.0f));
+        glm::mat4 translate = glm::translate(model, glm::vec3(0.3f, 0.3f, 0.0f));
+        glm::mat4 baseModel = rotate * translate;
+
+        glm::mat4 translate0 = glm::translate(model, glm::vec3(0.3f, 0.6f, 0.0f));
+        glm::mat4 translate1 = glm::translate(model, glm::vec3(0.3f, -0.6f, 0.0f));
+#endif
+        angle += 0.7;
+
+        glBindVertexArray(vao);
+        glBindTexture(GL_SAMPLER_2D, textrueId);
+
+        ourShader.use();
+        ourShader.setMat4("view", view);
+        ourShader.setMat4("projection", projection);
+
+        for (int i = 0; i < points.size(); i++) {
+            glm::mat4 translate = glm::translate(glm::mat4(1.0f), points.at(i));
+            ourShader.setMat4("model", translate * baseModel);
+            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_BYTE, 0);
+        }
+
+        glBindVertexArray(0);
+        glBindTexture(GL_SAMPLER_2D, 0);
+    };
+
+    auto drawImage_RotateAroundAnyPoint = [&](const std::vector<glm::vec3>& points) {
+
+        static float angle = 45.0f;
+        glm::mat4 projection = glm::perspective(45.0f, (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+        glm::mat4 view = glm::lookAt(glm::vec3(0.0f, 0.0f, 3.0f), glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        glm::mat4 model = glm::mat4(1.0f);
+#if 01
+        model = glm::rotate(model, glm::radians(angle), glm::vec3(0.0f, 0.0f, 1.0f));
+        model = glm::translate(model, glm::vec3(-0.1f, -0.1f, 0.0f));
+        glm::mat4 baseModel = model;
+        // baseModel = translate * rotate * translate;  先平移离 0 点远一点，再旋转
+        //之后再通过 translate * baseModel的方式，将图形移动
+#else
+#endif
+        angle += 0.7;
+
+        glBindVertexArray(vao);
+        glBindTexture(GL_SAMPLER_2D, textrueId);
+
+        ourShader.use();
+        ourShader.setMat4("view", view);
+        ourShader.setMat4("projection", projection);
+
+        for (int i = 0; i < points.size(); i++) {
+            glm::mat4 translate = glm::translate(glm::mat4(1.0f), points.at(i));
+            ourShader.setMat4("model", translate * baseModel);
+            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_BYTE, 0);
+        }
+
+        glBindVertexArray(0);
+        glBindTexture(GL_SAMPLER_2D, 0);
+    };
+    std::vector<glm::vec3> points = {
+        {0.5f, 0.5f, -1.0f},
+        {-0.5f, 0.5f, -1.0f},
+        {-0.5f, -0.5f, -1.0f},
+        {0.5f, -0.5f, -1.0f},
+        {1.7f, 1.7f, -1.0f},
+        {-1.7f, 1.7f, -1.0f},
+        {-1.7f, -1.7f, -1.0f},
+        {1.7f, -1.7f, -1.0f},
+    };
     // render loop
     // -----------
     while (!glfwWindowShouldClose(window))
@@ -129,10 +263,10 @@ int main()
         glClearColor(0.5f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        glBindVertexArray(vao);
-        glBindTexture(GL_SAMPLER_2D, textrueId);
-        ourShader.use();
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_BYTE, 0);
+        
+        drawImage_RotateAroundAnyPoint(points);
+        //drawImage_RotateAtAnyPoint();
+        drawCoordinateAxis();
 
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
