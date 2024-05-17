@@ -49,18 +49,30 @@ Eigen::Matrix4f get_projection_matrix(float eye_fov, float aspect_ratio,
     float tan = std::tan(radian);
 
     float l, r, t, b, n, f;
-    n = zNear;
-    f = zFar;
-    t = zNear * tan;
-    r = t/aspect_ratio;
+    n = -zNear;
+    f = -zFar;
+    t = (-n) * tan;
     b = -t;
+    r = t*aspect_ratio;
     l = -r;
-
-    Eigen::Matrix4f ortho;
-    ortho << 2/(r-l), 0, 0, -(l+r)/2,   0, 2/(t-b), 0, -(t-b)/2,    0, 0, 2/(n-f), -(n+f)/2,    0, 0, 0, 1;
 
     projection << n, 0, 0, 0,   0, n, 0, 0,    0, 0, f+n, -n*f,  0, 0, 1, 0 ;
 
+    Eigen::Matrix4f ortho;
+    Eigen::Matrix4f translate;
+    Eigen::Matrix4f scale;
+
+    translate << 1,     0,      0,      -(l+r)/2,
+                 0,     1,      0,      -(t+b)/2,
+                 0,     0,      1,      -(n+f)/2,
+                 0,     0,      0,      1;    
+
+    scale   <<   2/(r-l),   0,          0,          0,
+                 0,         2/(t-b),    0,          0,
+                 0,         0,          2/(n-f),    0,
+                 0,         0,          0,          1;   
+
+    ortho = scale * translate;
     projection = ortho * projection;
 
     return projection;
@@ -84,7 +96,7 @@ int main(int argc, const char** argv)
 
     Eigen::Vector3f eye_pos = {0, 0, 5};
 
-    std::vector<Eigen::Vector3f> pos{{2, 0, -2}, {0, 2, -2}, {-2, 0, -2}};
+    std::vector<Eigen::Vector3f> pos{{2, 0, -2}, {0, 2, -2}, {0, 0, -2}};
 
     std::vector<Eigen::Vector3i> ind{{0, 1, 2}};
 
